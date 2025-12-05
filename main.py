@@ -14,25 +14,22 @@ from utils.settings import Settings
 CREDIT_FOLDER_PATH = "test_data/credit_history_csv"
 DEBIT_FOLDER_PATH = "test_data/debit_history_csv"
 
+def get_most_recent_csv(folder_path: str) -> str:
+    files = list(Path(folder_path).rglob("*.csv"))
+    if not files:
+        raise FileNotFoundError(f"No CSV files found in {folder_path}")
+    newest_file = max(files, key=os.path.getctime)
+    return newest_file
 
 def main():
     db = DatabaseManager("DB/db_tracker.sqlite3")
     conn = db.connection
 
-    # Find files
-    credit_csvs = Path(CREDIT_FOLDER_PATH).rglob("*.csv")
-    debit_csvs = Path(DEBIT_FOLDER_PATH).rglob("*.csv")
-
     # Load data
-    dfs_credit = [pd.read_csv(f, usecols=Settings.DATA_COLS) for f in credit_csvs]
-    dfs_debit = [pd.read_csv(f, usecols=Settings.DATA_COLS) for f in debit_csvs]
-    db_debit_data = [pd.read_sql("SELECT * FROM debit", conn)]
-    db_credit_data = [pd.read_sql("SELECT * FROM credit", conn)]
-    db_cat_data = pd.read_sql("SELECT * FROM categories", conn)
-
-    # Append data and drop duplicates-(don't use categories column)
-    df_credit = pd.concat(dfs_credit + db_credit_data, ignore_index=True).drop_duplicates(subset=Settings.DATA_COLS).reset_index(drop=True)
-    df_debit =  pd.concat(dfs_debit + db_debit_data, ignore_index=True).drop_duplicates(subset=Settings.DATA_COLS).reset_index(drop=True)
+    latest_credit_path = get_most_recent_csv(CREDIT_FOLDER_PATH)
+    latest_debit_path = get_most_recent_csv(DEBIT_FOLDER_PATH)
+    df_credit = pd.read_csv(latest_credit_path, usecols=Settings.DATA_COLS)
+    df_debit = pd.read_csv(latest_debit_path, usecols=Settings.DATA_COLS)
 
     # Update date col to date type
     df_credit["Post Date"] = pd.to_datetime(df_credit["Post Date"], errors="coerce")
@@ -40,20 +37,13 @@ def main():
     invalid_rows_credit = df_credit[df_credit["Post Date"].isna()]
     invalid_rows_debit = df_debit[df_debit["Post Date"].isna()]
     if not invalid_rows_credit.empty:
-        print("credit has invalid date")
-        print(invalid_rows_credit)
+        raise ValueError(f"Credit has invalid dates: {invalid_rows_credit}")
     if not invalid_rows_debit.empty:
-        print("debit has invalid date")
-        print(invalid_rows_debit)
+        raise ValueError(f"Debit has invalid dates: {invalid_rows_credit}")
 
     # Add data to db
-    db.insert_account_data("credit", df_credit)
-    db.insert_account_data("debit", df_debit)
-
-    # # Group
-    # df_credit_group = df_credit.groupby(df_credit['Post Date'].dt.month)
-    # for _, credit_groups in df_credit_group:
-    #     print(credit_groups)
+    db.upsert_account_data(account="credit", df=df_credit)
+    db.upsert_account_data(account="debit", df=df_debit)
 
 
 if __name__ == "__main__":

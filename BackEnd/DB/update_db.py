@@ -8,11 +8,11 @@ for i in range(2):
         str(Path(__file__).resolve().parents[i])
     )
 
-from DB.db_manage import DatabaseManager
+from db_manage import DatabaseManager
 from utils.settings import Settings
 
-CREDIT_FOLDER_PATH = "test_data/credit_history_csv"
-DEBIT_FOLDER_PATH = "test_data/debit_history_csv"
+CREDIT_FOLDER_PATH = "../test_data/credit_history_csv"
+DEBIT_FOLDER_PATH = "../test_data/debit_history_csv"
 
 def get_most_recent_csv(folder_path: str) -> str:
     files = list(Path(folder_path).rglob("*.csv"))
@@ -22,7 +22,7 @@ def get_most_recent_csv(folder_path: str) -> str:
     return newest_file
 
 def main():
-    db = DatabaseManager("DB/db_tracker.sqlite3")
+    db = DatabaseManager("db_tracker.sqlite3")
     conn = db.connection
 
     # Load data

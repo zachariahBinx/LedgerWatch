@@ -209,3 +209,5 @@ __marimo__/
 # Local
 test_data/
 .idea/
+DB/db_tracker.sqlite3
+
